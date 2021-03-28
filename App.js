@@ -2,8 +2,9 @@ import 'react-native-gesture-handler';
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faCamera, faDirections, faPhotoVideo, faBolt } from '@fortawesome/free-solid-svg-icons';
+import { faCamera, faDirections, faPhotoVideo, faBolt, faSyncAlt, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { Camera } from 'expo-camera';
+import ImgToBase64 from 'react-native-image-base64';
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -12,7 +13,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 
 const Stack = createStackNavigator();
-const YOUR_SERVER_URL = 'https://jsonplaceholder.typicode.com/todos/1'
+const YOUR_SERVER_URL = 'https://bird-catcher-app.herokuapp.com'
 
 const MyStack = () => (
     <NavigationContainer>
@@ -30,31 +31,27 @@ const MyStack = () => (
 const Definition = ({ route, navigation }) => {
 
   const { uri } = route?.params;
-  const blobToBase64 = blob => {
-    const reader = new FileReader();
-    reader.readAsDataURL(new File([blob], 'sending'));
-    return new Promise(resolve => {
-      reader.onloadend = () => {
-        resolve(reader.result);
-      };
-    });
-  };
-
+  const [name, setName] = useState('No Data');
+  const [loading, setLoading] = useState(false);
+  
   const uploadImage = async () => {
-      const formData = new FormData();
-      const base64 = await blobToBase64(uri);
-      formData.append('file', base64);
-      await fetch(YOUR_SERVER_URL, {
-        method: 'GET',
-        body: formData,
-        headers: {
-          'content-type': 'multipart/form-data',
-        },
-      }).then(
-        (json) => console.log('json', json)
-      ).catch((error) => {
-        console.log(error);
-      });
+    await setLoading(true);
+    ImgToBase64.getBase64String(uri)
+    .then(base64String => 
+      {
+        const sendingURL = `${YOUR_SERVER_URL}/predict`;
+        fetch(sendingURL, {
+          method: 'POST',
+          body: base64String }).then(
+          (json) => console.log('json', json)
+        ).catch((error) => {
+          console.log(error);
+        });
+      })
+    .catch(err => console.log(err))
+    .finally(() => {
+      setLoading(false);
+    })
   }
 
   useEffect(() => {
@@ -66,11 +63,29 @@ const Definition = ({ route, navigation }) => {
         {uri ? (
           <View>
             <Image source={{ uri }} style={{width:500,height:400}} />
-            <Text style={{
-              textAlign: 'center',
-              fontSize: 18,
-              fontWeight: 'bold',
-            }}>center</Text>
+            {
+              (!loading) ?
+              <>
+                <Text style={{
+                  textAlign: 'center',
+                  fontSize: 18,
+                  fontWeight: 'bold',
+                }}>{name}</Text>
+    
+    
+                <TouchableOpacity
+                  style={{
+                    alignItems: 'center', alignSelf:'center', paddingTop: 10
+    
+                  }}>
+                  <FontAwesomeIcon icon={ faSyncAlt } size={40} onPress={uploadImage}/>
+                </TouchableOpacity>
+              </>: 
+              <FontAwesomeIcon icon={faSpinner} size={40} style={{
+                alignItems: 'center', alignSelf:'center', paddingTop: 20
+              }}/>
+            }
+            
           </View>
         ) : (
           <Text>Something wrong</Text>
